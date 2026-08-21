@@ -1,3 +1,5 @@
+# 怎么连接数据库
+
 from collections.abc import AsyncGenerator
 
 from sqlalchemy import text
@@ -20,7 +22,7 @@ engine = create_async_engine(
 )
 
 
-# 创建 AsyncSession 工厂
+# 创建 AsyncSession 工厂  创建一次数据库工作操作台的工厂
 SessionLocal = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,

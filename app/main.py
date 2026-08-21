@@ -2,9 +2,23 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from langgraph.checkpoint.postgres.aio import (
+    AsyncPostgresSaver,
+)
+from app.graph.persistence import (
+    create_langgraph_pool,
+)
+from app.graph.workflow import (
+    build_enterprise_graph,
+)
 from app.api.health import router as health_router
+from app.api.sales import router as sales_router
+from app.api.knowledge import router as knowledge_router
+from app.api.agent import router as agent_router
+from app.api.graph import router as graph_router
 from app.config import get_settings
 from app.db import engine
+
 
 
 settings = get_settings()
@@ -12,10 +26,35 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield
+    langgraph_pool = (
+        create_langgraph_pool()
+    )
 
-    # 程序关机的时候，把SQLAlchemy的数据库连接池清理掉。
-    await engine.dispose()
+    await langgraph_pool.open(
+        wait=True
+    )
+
+    checkpointer = AsyncPostgresSaver(
+        langgraph_pool
+    )
+
+
+    app.state.enterprise_graph = (
+        build_enterprise_graph(
+            checkpointer
+        )
+    )
+
+    app.state.langgraph_pool = (
+        langgraph_pool
+    )
+
+    try:
+        yield
+
+    finally:
+        await langgraph_pool.close()
+        await engine.dispose()
 
 
 app = FastAPI(
@@ -29,6 +68,30 @@ app.include_router(
     health_router,
     prefix="/api/v1",
     tags=["Health"],
+)
+
+app.include_router(
+    sales_router,
+    prefix="/api/v1",
+    tags=["Sales"],
+)
+
+app.include_router(
+    knowledge_router,
+    prefix="/api/v1",
+    tags=["Knowledge"],
+)
+
+app.include_router(
+    agent_router,
+    prefix="/api/v1",
+    tags=["Agent"],
+)
+
+app.include_router(
+    graph_router,
+    prefix="/api/v1",
+    tags=["LangGraph"],
 )
 
 
