@@ -12,6 +12,7 @@ from langgraph.graph import (
 from app.graph.nodes import (
     chat_node,
     knowledge_node,
+    sql_node,
 )
 from app.graph.router import (
     router_node,
@@ -42,6 +43,11 @@ def build_enterprise_graph(
     )
 
     builder.add_node(
+        "sql",
+        sql_node,
+    )
+
+    builder.add_node(
         "chat",
         chat_node,
     )
@@ -56,12 +62,18 @@ def build_enterprise_graph(
         select_route,
         {
             "knowledge": "knowledge",
+            "sql": "sql",
             "chat": "chat",
         },
     )
 
     builder.add_edge(
         "knowledge",
+        END,
+    )
+
+    builder.add_edge(
+        "sql",
         END,
     )
 

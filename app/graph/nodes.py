@@ -10,6 +10,9 @@ from langgraph.runtime import Runtime
 from app.agents.knowledge_agent import (
     create_knowledge_agent,
 )
+from app.agents.sales_agent import (
+    create_sales_agent,
+)
 from app.agents.model import get_agent_model
 from app.graph.state import (
     EnterpriseGraphContext,
@@ -86,4 +89,56 @@ async def chat_node(
             response
         ],
         "used_tools": [],
+    }
+
+
+async def sql_node(
+    state: EnterpriseGraphState,
+    runtime: Runtime[
+        EnterpriseGraphContext
+    ],
+) -> dict:
+    agent = create_sales_agent(
+        runtime.context.db
+    )
+
+    result = await agent.ainvoke(
+        {
+            "messages": state["messages"]
+        }
+    )
+
+    used_tools: list[str] = []
+
+    for message in result["messages"]:
+        if (
+            isinstance(
+                message,
+                ToolMessage,
+            )
+            and message.name
+            and message.name
+            not in used_tools
+        ):
+            used_tools.append(
+                message.name
+            )
+
+    final_message = (
+        result["messages"][-1]
+    )
+
+    if not isinstance(
+        final_message,
+        AIMessage,
+    ):
+        raise RuntimeError(
+            "Sales Agent 未返回最终 AIMessage"
+        )
+
+    return {
+        "messages": [
+            final_message
+        ],
+        "used_tools": used_tools,
     }

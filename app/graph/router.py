@@ -19,7 +19,10 @@ from app.graph.state import (
 class RouteDecision(BaseModel):
     route: RouteName = Field(
         description=(
-            "knowledge 表示企业内部知识库问题；"
+            "knowledge：企业制度、员工手册、"
+            "年假、报销、考勤、培训等知识库问题；"
+            "sql：销售额、销量、地区、产品、渠道、"
+            "日期范围、经营统计等结构化数据问题；"
             "chat 表示普通聊天、通用问题或关于当前对话的问题"
         )
     )
@@ -84,6 +87,11 @@ async def router_node(
                     "公司制度、员工手册、年假、考勤、"
                     "报销、培训、信息安全、内部流程等"
                     "企业内部知识。\n"
+                    
+                    "sql：\n"
+                    "涉及销售额、销量、销售地区、产品、"
+                    "销售渠道、销售日期、销售统计、"
+                    "经营数据计算的问题。\n"
 
                     "chat："
                     "普通寒暄、通用聊天，或者询问"
@@ -117,9 +125,14 @@ async def router_node(
 def select_route(
     state: EnterpriseGraphState,
 ) -> RouteName:
-    route = state.get("route")
+    route = state.get(
+        "route"
+    )
 
     if route == "knowledge":
         return "knowledge"
+
+    if route == "sql":
+        return "sql"
 
     return "chat"

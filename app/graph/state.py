@@ -8,6 +8,7 @@ from typing_extensions import NotRequired
 # 路由可选值  二选一
 RouteName = Literal[
     "knowledge",
+    "sql",
     "chat",
 ]
 
