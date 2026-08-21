@@ -9,6 +9,7 @@ from typing_extensions import NotRequired
 RouteName = Literal[
     "knowledge",
     "sql",
+    "hybrid",
     "chat",
 ]
 
