@@ -20,6 +20,7 @@ class GraphChatRequest(BaseModel):
 class GraphChatResponse(BaseModel):
     thread_id: str
     answer: str
+    trace_id: str
 
     route: Literal[
         "knowledge",

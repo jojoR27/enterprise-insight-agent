@@ -7,13 +7,18 @@ from langchain_core.messages import (
     HumanMessage,
     SystemMessage,
 )
+from langgraph.runtime import Runtime
 from pydantic import BaseModel, Field
 
 from app.agents.model import get_router_base_model
 from app.graph.state import (
+    EnterpriseGraphContext,
     EnterpriseGraphState,
     RouteName,
 )
+
+from langgraph.runtime import Runtime
+from ..graph.state import EnterpriseGraphContext
 
 
 class RouteDecision(BaseModel):
@@ -69,63 +74,91 @@ def format_conversation(
 
 async def router_node(
     state: EnterpriseGraphState,
+    runtime: Runtime[EnterpriseGraphContext],
 ) -> dict:
-    router_model = get_router_model()
+    trace = runtime.context.trace
 
-    conversation = format_conversation(
-        state
+    step = trace.start_step(
+        name="router",
+        category="router",
+        metadata={
+            "message_count": len(state["messages"]),
+        },
     )
 
-    decision = await router_model.ainvoke(
-        [
-            SystemMessage(
-                content=(
-                    "你是 Enterprise Insight Agent "
-                    "的请求路由器。"
-                    "你只负责分类，不负责回答用户问题。\n\n"
+    try:
+        router_model = get_router_model()
 
-                    "路由规则：\n"
-                    "knowledge："
-                    "公司制度、员工手册、年假、考勤、"
-                    "报销、培训、信息安全、内部流程等"
-                    "企业内部知识。\n"
-                    
-                    "sql：\n"
-                    "涉及销售额、销量、销售地区、产品、"
-                    "销售渠道、销售日期、销售统计、"
-                    "经营数据计算的问题。\n"
-                    
-                    "hybrid："
-                    "同一个用户请求同时需要企业知识库资料"
-                    "和结构化销售数据才能完整回答。\n"
+        conversation = format_conversation(
+            state
+        )
 
-                    "chat："
-                    "普通寒暄、通用聊天，或者询问"
-                    "当前聊天历史本身的问题。\n\n"
-                    
-                    "如果用户当前问题是省略式追问，"
-                    "例如“那要提前几天？”，"
-                    "必须结合之前对话判断其真实主题。"
-                )
-            ),
-            HumanMessage(
-                content=(
-                    "最近对话如下：\n\n"
-                    f"{conversation}\n\n"
-                    "请判断最后一条用户消息"
-                    "应该进入哪个路由。"
-                )
-            ),
-        ]
-    )
+        decision = await router_model.ainvoke(
+            [
+                SystemMessage(
+                    content=(
+                        "你是 Enterprise Insight Agent "
+                        "的请求路由器。"
+                        "你只负责分类，不负责回答用户问题。\n\n"
+    
+                        "路由规则：\n"
+                        "knowledge："
+                        "公司制度、员工手册、年假、考勤、"
+                        "报销、培训、信息安全、内部流程等"
+                        "企业内部知识。\n"
+                        
+                        "sql：\n"
+                        "涉及销售额、销量、销售地区、产品、"
+                        "销售渠道、销售日期、销售统计、"
+                        "经营数据计算的问题。\n"
+                        
+                        "hybrid："
+                        "同一个用户请求同时需要企业知识库资料"
+                        "和结构化销售数据才能完整回答。\n"
+    
+                        "chat："
+                        "普通寒暄、通用聊天，或者询问"
+                        "当前聊天历史本身的问题。\n\n"
+                        
+                        "如果用户当前问题是省略式追问，"
+                        "例如“那要提前几天？”，"
+                        "必须结合之前对话判断其真实主题。"
+                    )
+                ),
+                HumanMessage(
+                    content=(
+                        "最近对话如下：\n\n"
+                        f"{conversation}\n\n"
+                        "请判断最后一条用户消息"
+                        "应该进入哪个路由。"
+                    )
+                ),
+            ]
+        )
 
-    return {
-        "route": decision.route,
-        "route_reason": decision.reason,
+        trace.finish_step(
+            step,
+            metadata={
+                "route": decision.route,
+                "reason": decision.reason,
+            },
+        )
 
-        # 每轮重新计算，防止沿用上一轮工具记录
-        "used_tools": [],
-    }
+        return {
+            "route": decision.route,
+            "route_reason": decision.reason,
+
+            # 每轮重新计算，防止沿用上一轮工具记录
+            "used_tools": [],
+        }
+
+    except Exception as exc:
+        trace.finish_step(
+            step,
+            success=False,
+            error=str(exc),
+        )
+        raise
 
 
 def select_route(

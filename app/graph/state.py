@@ -1,8 +1,8 @@
 from dataclasses import dataclass
+from app.observability.trace import AgentTrace
 from typing import Literal
 
 from langgraph.graph import MessagesState
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing_extensions import NotRequired
 
 # 路由可选值  二选一
@@ -22,4 +22,4 @@ class EnterpriseGraphState(MessagesState):
 # Runtime Context：本次运行临时上下文，绝不持久化
 @dataclass
 class EnterpriseGraphContext:
-    db: AsyncSession
+    trace: AgentTrace
