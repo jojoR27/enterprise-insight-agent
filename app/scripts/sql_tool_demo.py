@@ -7,23 +7,20 @@ from app.db import SessionLocal
 
 
 async def main() -> None:
-    async with SessionLocal() as db:
-        tool = create_sales_tool(
-            db
-        )
+    tool = create_sales_tool()
 
-        result = await tool.ainvoke(
-            {
-                "group_by": "region",
-                "limit": 20,
-            }
-        )
+    result = await tool.ainvoke(
+        {
+            "group_by": "region",
+            "limit": 20,
+        }
+    )
 
-        print(
-            "========== SQL Tool =========="
-        )
+    print(
+        "========== SQL Tool =========="
+    )
 
-        print(result)
+    print(result)
 
 
 if __name__ == "__main__":

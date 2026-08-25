@@ -1,10 +1,7 @@
-from langchain_core.prompts import PromptTemplate
-from langchain_core.tools import BaseTool
-from langchain_core.tools.retriever import (
-    create_retriever_tool,
-)
-from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel, Field
+from langchain_core.tools import tool
 
+from app.db import SessionLocal
 from app.rag.embedding_service import (
     get_embedding_service,
 )
@@ -16,43 +13,86 @@ from app.repositories.document_repository import (
 )
 
 
+class KnowledgeToolInput(BaseModel):
+    query: str = Field(description="需要在企业内部知识库中检索的问题")
+
 def create_knowledge_tool(
-    db: AsyncSession,
     k: int = 3,
     min_similarity: float = 0.6,
-) -> BaseTool:
-    repository = DocumentRepository(db)
-
-    retriever = PgVectorRetriever(
-        repository=repository,
-        embedding_service=get_embedding_service(),
-        k=k,
-        min_similarity=min_similarity,
-    )
-
-    document_prompt = PromptTemplate.from_template(
-        (
-            "文件：{filename}\n"
-            "document_id：{document_id}\n"
-            "chunk_id：{chunk_id}\n"
-            "chunk_index：{chunk_index}\n"
-            "similarity：{similarity}\n"
-            "内容：\n"
-            "{page_content}"
-        )
-    )
-
-    return create_retriever_tool(
-        retriever=retriever,
-        name="search_enterprise_knowledge",
-        description=(
-            "搜索企业内部知识库。"
-            "当用户询问公司制度、员工手册、年假、"
-            "考勤、报销、培训、信息安全、内部流程等"
-            "企业内部知识时调用此工具。"
-            "普通寒暄和常识问题不需要调用。"
-        ),
-        document_prompt=document_prompt,
-        document_separator="\n\n---\n\n",
+):
+    @tool(
+        "search_enterprise_knowledge",
+        args_schema=KnowledgeToolInput,
         response_format="content_and_artifact",
     )
+    async def search_enterprise_knowledge(
+        query: str,
+    ):
+        """
+        搜索企业内部知识库。
+
+        当用户询问公司制度、员工手册、年假、
+        考勤、报销、培训、信息安全、内部流程等
+        企业内部知识时使用。
+        """
+
+        # 每一次 Tool Call 创建自己的数据库 Session
+        async with SessionLocal() as db:
+            repository = DocumentRepository(
+                db
+            )
+
+            retriever = PgVectorRetriever(
+                repository=repository,
+                embedding_service=(
+                    get_embedding_service()
+                ),
+                k=k,
+                min_similarity=min_similarity,
+            )
+
+            documents = await retriever.ainvoke(
+                query
+            )
+
+        if not documents:
+            return (
+                "当前企业知识库没有找到足够相关的资料。",
+                [],
+            )
+
+        content_parts: list[str] = []
+
+        for index, document in enumerate(
+            documents,
+            start=1,
+        ):
+            metadata = document.metadata
+
+            content_parts.append(
+                (
+                    f"[资料{index}]\n"
+                    f"文件：{metadata.get('filename')}\n"
+                    f"document_id："
+                    f"{metadata.get('document_id')}\n"
+                    f"chunk_id："
+                    f"{metadata.get('chunk_id')}\n"
+                    f"chunk_index："
+                    f"{metadata.get('chunk_index')}\n"
+                    f"similarity："
+                    f"{metadata.get('similarity')}\n"
+                    f"内容：\n"
+                    f"{document.page_content}"
+                )
+            )
+
+        content = "\n\n---\n\n".join(
+            content_parts
+        )
+
+        return (
+            content,
+            documents,
+        )
+
+    return search_enterprise_knowledge

@@ -1,10 +1,6 @@
 from langchain.agents import (
     create_agent,
 )
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-)
-
 from app.agents.model import (
     get_agent_model,
 )
@@ -13,12 +9,8 @@ from app.agents.tools.sales_tool import (
 )
 
 
-def create_sales_agent(
-    db: AsyncSession,
-):
-    sales_tool = create_sales_tool(
-        db
-    )
+def create_sales_agent():
+    sales_tool = create_sales_tool()
 
     model = get_agent_model()
 

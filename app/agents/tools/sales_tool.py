@@ -5,8 +5,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from langchain_core.tools import tool
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.db import SessionLocal
 from app.repositories.sales_repository import (
     SalesRepository,
 )
@@ -31,13 +30,7 @@ def normalize_value(value):
     return value
 
 
-def create_sales_tool(
-    db: AsyncSession,
-):
-    repository = SalesRepository(
-        db
-    )
-
+def create_sales_tool():
     @tool(
         "query_sales_data",
         args_schema=SalesQueryInput,
@@ -60,6 +53,10 @@ def create_sales_tool(
 
         本工具只执行只读统计查询。
         """
+        async with SessionLocal() as db:
+            repository = SalesRepository(
+                db
+            )
 
         rows = await repository.analytics(
             region=region,

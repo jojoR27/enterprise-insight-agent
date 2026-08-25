@@ -18,9 +18,7 @@ class AgentService:
         self,
         message: str,
     ) -> AgentChatResponse:
-        agent = create_knowledge_agent(
-            self.db
-        )
+        agent = create_knowledge_agent()
 
         result = await agent.ainvoke(
             {

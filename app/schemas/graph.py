@@ -24,6 +24,7 @@ class GraphChatResponse(BaseModel):
     route: Literal[
         "knowledge",
         "sql",
+        "hybrid",
         "chat",
     ]
 

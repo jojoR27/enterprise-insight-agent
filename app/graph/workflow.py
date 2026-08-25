@@ -11,6 +11,7 @@ from langgraph.graph import (
 
 from app.graph.nodes import (
     chat_node,
+    hybrid_node,
     knowledge_node,
     sql_node,
 )
@@ -48,6 +49,11 @@ def build_enterprise_graph(
     )
 
     builder.add_node(
+        "hybrid",
+        hybrid_node,
+    )
+
+    builder.add_node(
         "chat",
         chat_node,
     )
@@ -63,6 +69,7 @@ def build_enterprise_graph(
         {
             "knowledge": "knowledge",
             "sql": "sql",
+            "hybrid": "hybrid",
             "chat": "chat",
         },
     )
@@ -74,6 +81,11 @@ def build_enterprise_graph(
 
     builder.add_edge(
         "sql",
+        END,
+    )
+
+    builder.add_edge(
+        "hybrid",
         END,
     )
 

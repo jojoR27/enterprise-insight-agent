@@ -1,6 +1,5 @@
-# AgentLoop（while 反复思考‑工具调用）封装在create_agent返回的runnable 内部。
+# AgentLoop（while 反复思考‑工具调用）封装在create_agent返回的runnable内部。
 from langchain.agents import create_agent
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.model import get_agent_model
 from app.agents.tools.knowledge_tool import (
@@ -8,11 +7,8 @@ from app.agents.tools.knowledge_tool import (
 )
 
 
-def create_knowledge_agent(
-    db: AsyncSession,
-):
+def create_knowledge_agent():
     knowledge_tool = create_knowledge_tool(
-        db=db,
         k=3,
         min_similarity=0.6,
     )

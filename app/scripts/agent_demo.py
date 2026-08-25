@@ -9,36 +9,33 @@ from app.db import SessionLocal
 async def main() -> None:
     query = "公司2026年总营业收入是多少？"
 
-    async with SessionLocal() as db:
-        agent = create_knowledge_agent(
-            db
-        )
+    agent = create_knowledge_agent()
 
-        result = await agent.ainvoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": query,
-                    }
-                ]
-            }
-        )
+    result = await agent.ainvoke(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": query,
+                }
+            ]
+        }
+    )
 
-        print(
-            "\n========== Agent执行过程 ==========\n"
-        )
+    print(
+        "\n========== Agent执行过程 ==========\n"
+    )
 
-        for message in result["messages"]:
-            message.pretty_print()
+    for message in result["messages"]:
+        message.pretty_print()
 
-        print(
-            "\n========== 最终答案 ==========\n"
-        )
+    print(
+        "\n========== 最终答案 ==========\n"
+    )
 
-        print(
-            result["messages"][-1].content
-        )
+    print(
+        result["messages"][-1].content
+    )
 
 
 if __name__ == "__main__":
