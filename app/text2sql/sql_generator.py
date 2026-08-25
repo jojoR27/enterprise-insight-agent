@@ -1,5 +1,9 @@
 # 把用户自然语言 + Schema Registry 交给 DeepSeek，让它生成 PostgreSQL SQL。
 
+# 第二层
+# SQL Generator Prompt
+# → 要求只生成 SELECT
+
 from functools import lru_cache
 
 from langchain_core.messages import (

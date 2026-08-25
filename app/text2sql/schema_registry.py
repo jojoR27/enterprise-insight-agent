@@ -1,4 +1,9 @@
 # Text-to-SQL 的 Schema Registry（数据库结构注册表）
+
+# 第一层
+# Schema Registry
+# → LLM 只知道允许的表
+
 # Schema Registry
 #      │
 #      ├──→ SQL Generator
