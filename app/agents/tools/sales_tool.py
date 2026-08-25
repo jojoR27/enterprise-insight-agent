@@ -6,8 +6,8 @@ from decimal import Decimal
 
 from langchain_core.tools import tool
 from app.db import (
-    SessionLocal,
-    engine)
+    SessionLocal)
+from app.observability.trace import AgentTrace
 from app.repositories.sales_repository import (
     SalesRepository,
 )
@@ -32,7 +32,7 @@ def normalize_value(value):
     return value
 
 
-def create_sales_tool():
+def create_sales_tool( trace: AgentTrace | None = None,):
     @tool(
         "query_sales_data",
         args_schema=SalesQueryInput,
@@ -55,50 +55,109 @@ def create_sales_tool():
 
         本工具只执行只读统计查询。
         """
-        async with SessionLocal.begin() as db:
-            repository = SalesRepository(db)
 
-            rows = await repository.analytics(
-                region=region,
-                product_name=product_name,
-                channel=channel,
-                start_date=start_date,
-                end_date=end_date,
-                group_by=group_by,
-                limit=limit,
+        step = None
+
+        if trace is not None:
+            step = trace.start_step(
+                name="query_sales_data",
+                category="tool",
+                metadata={
+                    "group_by": group_by,
+                    "limit": limit,
+
+                    "filters": {
+                        "region": (
+                                region is not None
+                        ),
+                        "product_name": (
+                                product_name is not None
+                        ),
+                        "channel": (
+                                channel is not None
+                        ),
+                        "start_date": (
+                                start_date is not None
+                        ),
+                        "end_date": (
+                                end_date is not None
+                        ),
+                    },
+                },
             )
 
-            normalized_rows = [
-                {
-                    key: normalize_value(value)
-                    for key, value in row.items()
-                }
-                for row in rows
-            ]
+        try:
+            async with SessionLocal.begin() as db:
+                repository = SalesRepository(db)
 
-        result = {
-            "filters": {
-                "region": region,
-                "product_name": product_name,
-                "channel": channel,
-                "start_date": (
-                    start_date.isoformat()
-                    if start_date
-                    else None
-                ),
-                "end_date": (
-                    end_date.isoformat()
-                    if end_date
-                    else None
-                ),
-            },
-            "group_by": group_by,
-            "rows": normalized_rows,
-        }
+                rows = await repository.analytics(
+                    region=region,
+                    product_name=product_name,
+                    channel=channel,
+                    start_date=start_date,
+                    end_date=end_date,
+                    group_by=group_by,
+                    limit=limit,
+                )
 
-        return json.dumps(
-            result,
-            ensure_ascii=False,
-        )
+                normalized_rows = [
+                    {
+                        key: normalize_value(value)
+                        for key, value in row.items()
+                    }
+                    for row in rows
+                ]
+
+            result = {
+                "filters": {
+                    "region": region,
+                    "product_name": product_name,
+                    "channel": channel,
+                    "start_date": (
+                        start_date.isoformat()
+                        if start_date
+                        else None
+                    ),
+                    "end_date": (
+                        end_date.isoformat()
+                        if end_date
+                        else None
+                    ),
+                },
+                "group_by": group_by,
+                "rows": normalized_rows,
+            }
+
+            if (
+                    trace is not None
+                    and step is not None
+            ):
+                trace.finish_step(
+                    step,
+                    metadata={
+                        "row_count": len(
+                            normalized_rows
+                        ),
+                    },
+                )
+
+            return json.dumps(
+                result,
+                ensure_ascii=False,
+            )
+
+        except Exception as exc:
+            if (
+                    trace is not None
+                    and step is not None
+                    and step.finished_at is None
+            ):
+                trace.finish_step(
+                    step,
+                    success=False,
+                    error=str(exc),
+                )
+
+            raise
 
     return query_sales_data

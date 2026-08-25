@@ -27,7 +27,7 @@ async def knowledge_node(
         EnterpriseGraphContext
     ],
 ) -> dict:
-    agent = create_knowledge_agent()
+    agent = create_knowledge_agent(trace=runtime.context.trace,)
     result = await agent.ainvoke(
         {
             "messages": state["messages"]
@@ -96,7 +96,7 @@ async def sql_node(
         EnterpriseGraphContext
     ],
 ) -> dict:
-    agent = create_sales_agent()
+    agent = create_sales_agent(trace=runtime.context.trace,)
 
     result = await agent.ainvoke(
         {
@@ -150,7 +150,7 @@ async def hybrid_node(
     # =========================
     # 1. 调用知识库 Agent
     # =========================
-    knowledge_agent = create_knowledge_agent()
+    knowledge_agent = create_knowledge_agent(trace=runtime.context.trace,)
 
     knowledge_result = await knowledge_agent.ainvoke(
         {
@@ -173,7 +173,7 @@ async def hybrid_node(
     # =========================
     # 2. 调用销售数据 Agent
     # =========================
-    sales_agent = create_sales_agent()
+    sales_agent = create_sales_agent(trace=runtime.context.trace,)
 
     sales_result = await sales_agent.ainvoke(
         {

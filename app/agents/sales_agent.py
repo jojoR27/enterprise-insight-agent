@@ -10,11 +10,12 @@ from app.agents.tools.sales_tool import (
 from app.agents.tools.text2sql_tool import (
     create_text2sql_tool,
 )
+from app.observability.trace import AgentTrace
 
 
-def create_sales_agent():
-    sales_tool = create_sales_tool()
-    text2sql_tool = create_text2sql_tool()
+def create_sales_agent(trace: AgentTrace | None = None,):
+    sales_tool = create_sales_tool(trace=trace)
+    text2sql_tool = create_text2sql_tool(trace=trace)
 
     model = get_agent_model()
 
