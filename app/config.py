@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     llm_model: str | None = None
     llm_base_url: str | None = None
 
+    text2sql_database_url: str
+    text2sql_max_rows: int = 100
+    text2sql_statement_timeout_ms: int = 3000
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

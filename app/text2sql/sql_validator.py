@@ -577,3 +577,29 @@ def validate_sql(sql: str,) -> SQLValidationResult:
             referenced_columns
         ),
     )
+
+    # =====================================================
+    # 禁止未知 / 任意 PostgreSQL Function
+    #
+    # 例如：
+    # pg_sleep(...)
+    # set_config(...)
+    # 以及其他没有明确开放的函数。
+    #
+    # 常用 SUM / AVG / COUNT / DATE_TRUNC 等
+    # sqlglot 通常会解析成明确 AST 类型，
+    # 不属于 Anonymous。
+    # =====================================================
+
+    for function in statement.find_all(exp.Anonymous):
+        function_name = (
+                function.name
+                or "unknown"
+        )
+
+        errors.append(
+            (
+                "SQL 使用了未授权函数："
+                f"{function_name}"
+            )
+        )
