@@ -56,13 +56,6 @@ def create_sales_tool():
         本工具只执行只读统计查询。
         """
         async with SessionLocal.begin() as db:
-            print(
-                "\n[SalesTool] Session 内，查询前："
-            )
-            print(
-                engine.sync_engine.pool.status()
-            )
-
             repository = SalesRepository(db)
 
             rows = await repository.analytics(

@@ -8,7 +8,8 @@ from app.db import engine
 
 async def main() -> None:
     query = (
-        "按地区统计销售额，哪个地区最高？"
+        "统计每个渠道销售额占总销售额的比例，"
+        "并告诉我哪个渠道占比最高。"
     )
 
     agent = create_sales_agent()
