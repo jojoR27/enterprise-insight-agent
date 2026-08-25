@@ -187,4 +187,8 @@ class SalesRepository:
             statement
         )
 
-        return result.mappings().all()
+        try:
+            rows = result.mappings().all()
+            return rows
+        finally:
+            result.close()

@@ -5,7 +5,9 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from langchain_core.tools import tool
-from app.db import SessionLocal
+from app.db import (
+    SessionLocal,
+    engine)
 from app.repositories.sales_repository import (
     SalesRepository,
 )
@@ -53,31 +55,33 @@ def create_sales_tool():
 
         本工具只执行只读统计查询。
         """
-        async with SessionLocal() as db:
-            repository = SalesRepository(
-                db
+        async with SessionLocal.begin() as db:
+            print(
+                "\n[SalesTool] Session 内，查询前："
+            )
+            print(
+                engine.sync_engine.pool.status()
             )
 
-        rows = await repository.analytics(
-            region=region,
-            product_name=product_name,
-            channel=channel,
-            start_date=start_date,
-            end_date=end_date,
-            group_by=group_by,
-            limit=limit,
-        )
+            repository = SalesRepository(db)
 
-        normalized_rows = []
+            rows = await repository.analytics(
+                region=region,
+                product_name=product_name,
+                channel=channel,
+                start_date=start_date,
+                end_date=end_date,
+                group_by=group_by,
+                limit=limit,
+            )
 
-        for row in rows:
-            normalized_rows.append(
+            normalized_rows = [
                 {
                     key: normalize_value(value)
-                    for key, value
-                    in row.items()
+                    for key, value in row.items()
                 }
-            )
+                for row in rows
+            ]
 
         result = {
             "filters": {
