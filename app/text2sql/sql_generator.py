@@ -13,7 +13,7 @@ from langchain_core.messages import (
 from pydantic import BaseModel, Field
 
 from app.agents.model import (
-    get_router_base_model,
+    get_structured_base_model,
 )
 from app.text2sql.schema_registry import (
     get_schema_prompt,
@@ -38,7 +38,7 @@ class SQLGenerationResult(BaseModel):
 
 @lru_cache
 def get_sql_generator_model():
-    model = get_router_base_model()
+    model = get_structured_base_model()
 
     return model.with_structured_output(
         SQLGenerationResult,

@@ -45,13 +45,13 @@ def get_agent_model() -> ChatOpenAI:
     return _create_model()
 
 @lru_cache
-def get_router_base_model() -> ChatOpenAI:
+def get_structured_base_model() -> ChatOpenAI:
     """
-    Router 专用模型。
+    结构化输出专用基础模型。
 
     关闭思考模式，
-    允许 LangChain 使用强制 Function Calling
-    生成结构化 RouteDecision。
+    供 Planner、SQL Generator 等
+    function calling 场景使用。
     """
     return _create_model(
         enable_thinking=False,

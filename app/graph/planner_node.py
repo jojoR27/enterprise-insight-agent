@@ -66,6 +66,11 @@ async def planner_node(state: EnterpriseGraphState,) -> dict:
 
     decision = await plan_request(planner_input)
 
+    if decision is None:
+        raise RuntimeError(
+            "Planner 返回空 Decision"
+        )
+
     tasks = [
         {
             "target": task.target,

@@ -1,7 +1,5 @@
 import operator
-from dataclasses import dataclass
 
-from app.observability.trace import AgentTrace
 from typing import Literal, TypedDict, Annotated
 
 from langgraph.graph import MessagesState
@@ -10,14 +8,6 @@ from app.planner.planner import (
     PlannerMode,
     PlannerTarget,
 )
-
-# 路由可选值  多选一
-RouteName = Literal[
-    "knowledge",
-    "sql",
-    "hybrid",
-    "chat",
-]
 
 class WorkerTask(TypedDict):
     """
@@ -54,7 +44,7 @@ class EnterpriseGraphState(MessagesState):
     ]
 
     planner_tasks: NotRequired[
-        dict[str, str]
+        list[WorkerTask]
     ]
 
     planner_reason: NotRequired[str]
@@ -63,8 +53,3 @@ class EnterpriseGraphState(MessagesState):
         list[WorkerResult],
         operator.add,
     ]
-
-# Runtime Context：本次运行临时上下文，绝不持久化
-@dataclass
-class EnterpriseGraphContext:
-    trace: AgentTrace

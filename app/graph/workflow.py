@@ -23,7 +23,6 @@ from app.graph.result_nodes import (
     synthesis_node,
 )
 from app.graph.state import (
-    EnterpriseGraphContext,
     EnterpriseGraphState,
 )
 from app.graph.worker import (
@@ -36,7 +35,6 @@ def build_enterprise_graph(
 ):
     builder = StateGraph(
         EnterpriseGraphState,
-        context_schema=EnterpriseGraphContext,
     )
 
     # =========================

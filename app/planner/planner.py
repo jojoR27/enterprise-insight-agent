@@ -12,7 +12,7 @@ from pydantic import (
 )
 
 from app.agents.model import (
-    get_router_base_model,
+    get_structured_base_model,
 )
 
 
@@ -153,11 +153,12 @@ def get_planner_model():
     可以稳定使用 function_calling。
     """
 
-    model = get_router_base_model()
+    model = get_structured_base_model()
 
     return model.with_structured_output(
         PlannerDecision,
         method="function_calling",
+        include_raw=True,
     )
 
 
@@ -177,70 +178,98 @@ async def plan_request(
 
     planner_model = get_planner_model()
 
-    decision = await planner_model.ainvoke(
-        [
-            SystemMessage(
-                content=(
-                    "你是 Enterprise Insight Agent 的 Planner。\n\n"
+    messages = [
+        SystemMessage(
+            content=(
+                "你是 Enterprise Insight Agent 的 Planner。\n\n"
 
-                    "你的职责不是回答用户问题，"
-                    "而是判断这个请求需要哪些专业 Agent，"
-                    "并把请求拆成可以独立执行的子任务。\n\n"
+                "你的职责不是回答用户问题，"
+                "而是判断这个请求需要哪些专业 Agent，"
+                "并把请求拆成可以独立执行的子任务。\n\n"
 
-                    "当前可用专业 Agent：\n"
+                "当前可用专业 Agent：\n"
 
-                    "1. knowledge：企业内部知识库。"
-                    "负责员工手册、公司制度、年假、"
-                    "报销、考勤、培训、信息安全、"
-                    "内部流程等问题。\n"
+                "1. knowledge：企业内部知识库。"
+                "负责员工手册、公司制度、年假、"
+                "报销、考勤、培训、信息安全、"
+                "内部流程等问题。\n"
 
-                    "2. sales：销售数据分析。"
-                    "负责销售额、销量、地区、产品、"
-                    "渠道、日期范围、占比、排名、趋势、"
-                    "经营统计等结构化销售数据问题。\n\n"
+                "2. sales：销售数据分析。"
+                "负责销售额、销量、地区、产品、"
+                "渠道、日期范围、占比、排名、趋势、"
+                "经营统计等结构化销售数据问题。\n\n"
 
-                    "规划规则：\n"
+                "规划规则：\n"
 
-                    "1. 如果不需要任何专业 Agent，"
-                    "例如普通寒暄、通用聊天，"
-                    "mode=chat，targets=[]，tasks=[]。\n"
+                "1. 如果不需要任何专业 Agent，"
+                "例如普通寒暄、通用聊天、"
+                "询问当前对话历史、询问自己刚才说过什么、"
+                "询问上一条问题或上一轮回答，"
+                "mode=chat，targets=[]，tasks=[]。\n"
 
-                    "2. 只需要一个专业 Agent 时，"
-                    "mode=single。\n"
+                "2. 只需要一个专业 Agent 时，"
+                "mode=single。\n"
 
-                    "3. 同一个请求同时需要 knowledge "
-                    "和 sales 时，mode=multi，"
-                    "并分别生成两个独立子任务。\n"
+                "3. 同一个请求同时需要 knowledge "
+                "和 sales 时，mode=multi，"
+                "并分别生成两个独立子任务。\n"
 
-                    "4. 只选择真正需要的 Agent，"
-                    "不要为了凑数量调用无关 Agent。\n"
+                "4. 只选择真正需要的 Agent，"
+                "不要为了凑数量调用无关 Agent。\n"
 
-                    "5. 每个子任务必须完整、自包含，"
-                    "让对应 Agent 不看原始问题"
-                    "也知道自己需要完成什么。\n"
+                "5. 每个子任务必须完整、自包含，"
+                "让对应 Agent 不看原始问题"
+                "也知道自己需要完成什么。\n"
 
-                    "6. 必须保留用户已经明确给出的"
-                    "地区、产品、渠道、日期、"
-                    "统计口径等条件。\n"
+                "6. 必须保留用户已经明确给出的"
+                "地区、产品、渠道、日期、"
+                "统计口径等条件。\n"
 
-                    "7. 不得编造用户没有提供的"
-                    "条件或业务事实。\n"
+                "7. 不得编造用户没有提供的"
+                "条件或业务事实。\n"
 
-                    "8. knowledge 子任务只负责知识库内容；"
-                    "sales 子任务只负责销售数据分析，"
-                    "不要把两个领域混在同一个子任务里。\n"
+                "8. knowledge 子任务只负责知识库内容；"
+                "sales 子任务只负责销售数据分析，"
+                "不要把两个领域混在同一个子任务里。\n"
 
-                    "9. 你只输出任务计划，"
-                    "不回答问题本身。"
-                )
-            ),
-            HumanMessage(
-                content=(
-                    "请为下面的用户请求生成执行计划：\n\n"
-                    f"{question}"
-                )
-            ),
-        ]
+                "9. 你只输出任务计划，"
+                "不回答问题本身。"
+
+                "10. 无论最终判断为 chat、single 还是 multi，"
+                "都必须返回完整的 PlannerDecision 结构化结果，"
+                "绝不能直接回答用户，也不能返回空结果。\n"
+            )
+        ),
+        HumanMessage(
+            content=(
+                "请为下面的用户请求生成执行计划：\n\n"
+                f"{question}"
+            )
+        ),
+    ]
+
+    result = await planner_model.ainvoke(
+        messages
     )
 
-    return decision
+
+    decision = result.get(
+        "parsed"
+    )
+
+    if decision is not None:
+        return decision
+
+    parsing_error = result.get(
+        "parsing_error"
+    )
+
+    raw = result.get(
+        "raw"
+    )
+
+    raise RuntimeError(
+        "Planner 未返回有效的结构化结果。"
+        f" parsing_error={parsing_error!r},"
+        f" raw={raw!r}"
+    )

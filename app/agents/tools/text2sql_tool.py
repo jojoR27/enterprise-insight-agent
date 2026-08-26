@@ -1,5 +1,5 @@
-# 把Generator+Validator+Executor封装成一个 LangChain Tool
-
+# 把 Generator + Validator + Executor
+# 封装成一个安全 Text-to-SQL LangChain Tool
 
 import json
 
@@ -17,7 +17,6 @@ from app.text2sql.sql_generator import (
 from app.text2sql.sql_validator import (
     validate_sql,
 )
-from app.observability.trace import AgentTrace
 
 
 class TextToSQLInput(BaseModel):
@@ -32,219 +31,138 @@ class TextToSQLInput(BaseModel):
     )
 
 
-def create_text2sql_tool(trace: AgentTrace | None = None,):
+def create_text2sql_tool():
     @tool(
         "text_to_sql",
         args_schema=TextToSQLInput,
     )
-
-    async def text_to_sql(question: str,) -> str:
+    async def text_to_sql(
+        question: str,
+    ) -> str:
         """
         使用安全 Text-to-SQL 分析企业销售表数据。
 
         当简单的地区、产品、渠道、日期分组统计
         无法满足用户问题时使用。
 
-        工具内部会依次执行：
+        工具内部依次执行：
+
         SQL Generator
         -> SQL Validator
         -> Read-only SQL Executor
         """
-        step = None
 
-        if trace is not None:
-            step = trace.start_step(
-                name="text_to_sql",
-                category="tool",
-                metadata={
-                    "question_length": len(question),
-                },
-            )
+        # ==========================================
+        # 1. Natural Language -> SQL
+        # ==========================================
 
-        try:
-            # ==========================================
-            # 1. Natural Language -> SQL
-            # ==========================================
-            generation = await generate_sql(question)
+        generation = await generate_sql(
+            question
+        )
 
-            generated_sql = (generation.sql.strip())
+        generated_sql = (
+            generation.sql.strip()
+        )
 
-            # ==========================================
-            # 2. SQL 安全校验
-            # ==========================================
+        # ==========================================
+        # 2. SQL 安全校验
+        # ==========================================
 
-            validation = validate_sql(generated_sql)
+        validation = validate_sql(
+            generated_sql
+        )
 
-            if not validation.is_valid:
-                if (
-                        trace is not None
-                        and step is not None
-                ):
-                    trace.finish_step(
-                        step,
-                        success=False,
-                        error=(
-                            "SQL validation rejected "
-                            "generated SQL"
-                        ),
-                        metadata={
-                            "stage": "validation",
-                            "validation_error_count": len(
-                                validation.errors
-                            ),
-                            "warning_count": len(
-                                validation.warnings
-                            ),
-                        },
-                    )
-
-                result = {
-                    "success": False,
-                    "stage": "validation",
-                    "question": question,
-                    "generated_sql": generated_sql,
-                    "explanation": (
-                        generation.explanation
-                    ),
-                    "errors": (
-                        validation.errors
-                    ),
-                    "warnings": (
-                        validation.warnings
-                    ),
-                }
-
-                return json.dumps(
-                    result,
-                    ensure_ascii=False,
-                )
-
-            # ==========================================
-            # 3. Read-only SQL Executor
-            # ==========================================
-
-            try:
-                execution = (
-                    await execute_readonly_sql(generated_sql)
-                )
-
-            except SQLExecutionRejectedError as exc:
-                if (
-                        trace is not None
-                        and step is not None
-                ):
-                    trace.finish_step(
-                        step,
-                        success=False,
-                        error=str(exc),
-                        metadata={
-                            "stage": "executor_rejected",
-                        },
-                    )
-
-                result = {
-                    "success": False,
-                    "stage": "executor_rejected",
-                    "question": question,
-                    "generated_sql": generated_sql,
-                    "error": str(exc),
-                }
-
-                return json.dumps(
-                    result,
-                    ensure_ascii=False,
-                )
-
-            except SQLExecutionError as exc:
-                if (
-                        trace is not None
-                        and step is not None
-                ):
-                    trace.finish_step(
-                        step,
-                        success=False,
-                        error=str(exc),
-                        metadata={
-                            "stage": "execution",
-                        },
-                    )
-
-                result = {
-                    "success": False,
-                    "stage": "execution",
-                    "question": question,
-                    "generated_sql": generated_sql,
-                    "error": str(exc),
-                }
-
-                return json.dumps(
-                    result,
-                    ensure_ascii=False,
-                )
-
-            # ==========================================
-            # 4. 返回结构化查询结果
-            # ==========================================
-
+        if not validation.is_valid:
             result = {
-                "success": True,
+                "success": False,
+                "stage": "validation",
                 "question": question,
-                "generated_sql": (
-                    execution.sql
-                ),
-                "sql_explanation": (
+                "generated_sql": generated_sql,
+                "explanation": (
                     generation.explanation
                 ),
-                "columns": (
-                    execution.columns
+                "errors": (
+                    validation.errors
                 ),
-                "row_count": (
-                    execution.row_count
-                ),
-                "truncated": (
-                    execution.truncated
-                ),
-                "rows": (
-                    execution.rows
+                "warnings": (
+                    validation.warnings
                 ),
             }
-
-            if (
-                    trace is not None
-                    and step is not None
-            ):
-                trace.finish_step(
-                    step,
-                    metadata={
-                        "stage": "completed",
-                        "row_count": (
-                            execution.row_count
-                        ),
-                        "truncated": (
-                            execution.truncated
-                        ),
-                    },
-                )
 
             return json.dumps(
                 result,
                 ensure_ascii=False,
             )
 
-        except Exception as exc:
-            if (
-                    trace is not None
-                    and step is not None
-                    and step.finished_at is None
-            ):
-                trace.finish_step(
-                    step,
-                    success=False,
-                    error=str(exc),
-                    metadata={
-                        "stage": "unexpected_error",
-                    },
+        # ==========================================
+        # 3. Read-only SQL Executor
+        # ==========================================
+
+        try:
+            execution = (
+                await execute_readonly_sql(
+                    generated_sql
                 )
-            raise
+            )
+
+        except SQLExecutionRejectedError as exc:
+            result = {
+                "success": False,
+                "stage": "executor_rejected",
+                "question": question,
+                "generated_sql": generated_sql,
+                "error": str(exc),
+            }
+
+            return json.dumps(
+                result,
+                ensure_ascii=False,
+            )
+
+        except SQLExecutionError as exc:
+            result = {
+                "success": False,
+                "stage": "execution",
+                "question": question,
+                "generated_sql": generated_sql,
+                "error": str(exc),
+            }
+
+            return json.dumps(
+                result,
+                ensure_ascii=False,
+            )
+
+        # ==========================================
+        # 4. 返回结构化查询结果
+        # ==========================================
+
+        result = {
+            "success": True,
+            "question": question,
+            "generated_sql": (
+                execution.sql
+            ),
+            "sql_explanation": (
+                generation.explanation
+            ),
+            "columns": (
+                execution.columns
+            ),
+            "row_count": (
+                execution.row_count
+            ),
+            "truncated": (
+                execution.truncated
+            ),
+            "rows": (
+                execution.rows
+            ),
+        }
+
+        return json.dumps(
+            result,
+            ensure_ascii=False,
+        )
 
     return text_to_sql
