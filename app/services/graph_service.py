@@ -49,14 +49,25 @@ class GraphService:
 
             return GraphChatResponse(
                 thread_id=thread_id,
-                trace_id=trace.trace_id,
+
                 answer=str(
                     final_message.content
                 ),
-                route=result["route"],
-                route_reason=result[
-                    "route_reason"
+
+                mode=result[
+                    "planner_mode"
                 ],
+
+                targets=result.get(
+                    "planner_targets",
+                    [],
+                ),
+
+                planner_reason=result.get(
+                    "planner_reason",
+                    "",
+                ),
+
                 used_tools=result.get(
                     "used_tools",
                     [],

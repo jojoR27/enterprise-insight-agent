@@ -166,8 +166,6 @@ async def plan_request(
 ) -> PlannerDecision:
     """
     根据用户问题生成 Agent 执行计划。
-
-    Planner V1 只规划，不执行 Agent。
     """
 
     question = question.strip()

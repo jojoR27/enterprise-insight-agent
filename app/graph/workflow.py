@@ -11,17 +11,23 @@ from langgraph.graph import (
 
 from app.graph.nodes import (
     chat_node,
-    hybrid_node,
-    knowledge_node,
-    sql_node,
 )
-from app.graph.router import (
-    router_node,
-    select_route,
+from app.graph.planner_node import (
+    dispatch_after_planner,
+    planner_node,
+)
+from app.graph.result_nodes import (
+    direct_result_node,
+    result_coordinator_node,
+    select_result_path,
+    synthesis_node,
 )
 from app.graph.state import (
     EnterpriseGraphContext,
     EnterpriseGraphState,
+)
+from app.graph.worker import (
+    worker_node,
 )
 
 
@@ -33,24 +39,33 @@ def build_enterprise_graph(
         context_schema=EnterpriseGraphContext,
     )
 
+    # =========================
+    # Nodes
+    # =========================
+
     builder.add_node(
-        "router",
-        router_node,
+        "planner",
+        planner_node,
     )
 
     builder.add_node(
-        "knowledge",
-        knowledge_node,
+        "worker",
+        worker_node,
     )
 
     builder.add_node(
-        "sql",
-        sql_node,
+        "result_coordinator",
+        result_coordinator_node,
     )
 
     builder.add_node(
-        "hybrid",
-        hybrid_node,
+        "direct_result",
+        direct_result_node,
+    )
+
+    builder.add_node(
+        "synthesis",
+        synthesis_node,
     )
 
     builder.add_node(
@@ -58,34 +73,66 @@ def build_enterprise_graph(
         chat_node,
     )
 
+    # =========================
+    # Entry
+    # =========================
+
     builder.add_edge(
         START,
-        "router",
+        "planner",
     )
 
+    # =========================
+    # Planner
+    #
+    # chat:
+    #   Planner → chat
+    #
+    # single / multi:
+    #   Planner → Send(worker...)
+    # =========================
+
     builder.add_conditional_edges(
-        "router",
-        select_route,
+        "planner",
+        dispatch_after_planner,
+    )
+
+    # =========================
+    # Worker 聚合
+    # =========================
+
+    builder.add_edge(
+        "worker",
+        "result_coordinator",
+    )
+
+    # =========================
+    # Coordinator
+    # =========================
+
+    builder.add_conditional_edges(
+        "result_coordinator",
+        select_result_path,
         {
-            "knowledge": "knowledge",
-            "sql": "sql",
-            "hybrid": "hybrid",
-            "chat": "chat",
+            "direct":
+                "direct_result",
+
+            "synthesis":
+                "synthesis",
         },
     )
 
+    # =========================
+    # End
+    # =========================
+
     builder.add_edge(
-        "knowledge",
+        "direct_result",
         END,
     )
 
     builder.add_edge(
-        "sql",
-        END,
-    )
-
-    builder.add_edge(
-        "hybrid",
+        "synthesis",
         END,
     )
 
@@ -100,6 +147,8 @@ def build_enterprise_graph(
     )
 
 
-enterprise_graph = build_enterprise_graph(
-    InMemorySaver()
+enterprise_graph = (
+    build_enterprise_graph(
+        InMemorySaver()
+    )
 )

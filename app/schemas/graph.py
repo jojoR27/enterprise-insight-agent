@@ -1,13 +1,21 @@
-from typing import Literal
+from pydantic import (
+    BaseModel,
+    Field,
+)
 
-from pydantic import BaseModel, Field
+from app.planner.planner import (
+    PlannerMode,
+    PlannerTarget,
+)
 
 
 class GraphChatRequest(BaseModel):
     thread_id: str = Field(
         min_length=1,
         max_length=100,
-        description="会话ID，相同thread_id共享对话记忆",
+        description=(
+            "会话ID，相同thread_id共享对话记忆"
+        ),
     )
 
     message: str = Field(
@@ -19,16 +27,15 @@ class GraphChatRequest(BaseModel):
 
 class GraphChatResponse(BaseModel):
     thread_id: str
-    answer: str
-    trace_id: str
 
-    route: Literal[
-        "knowledge",
-        "sql",
-        "hybrid",
-        "chat",
+    answer: str
+
+    mode: PlannerMode
+
+    targets: list[
+        PlannerTarget
     ]
 
-    route_reason: str
+    planner_reason: str
 
     used_tools: list[str]
