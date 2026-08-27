@@ -35,21 +35,9 @@ class EnterpriseGraphState(MessagesState):
     result_mode: NotRequired[ResultMode]
     used_tools: NotRequired[list[str]]
 
-    planner_mode: NotRequired[
-        PlannerMode
-    ]
-
-    planner_targets: NotRequired[
-        list[PlannerTarget]
-    ]
-
-    planner_tasks: NotRequired[
-        list[WorkerTask]
-    ]
-
+    planner_mode: NotRequired[PlannerMode]
+    planner_targets: NotRequired[list[PlannerTarget]]
+    planner_tasks: NotRequired[list[WorkerTask]]
     planner_reason: NotRequired[str]
 
-    worker_results: Annotated[
-        list[WorkerResult],
-        operator.add,
-    ]
+    worker_results: Annotated[list[WorkerResult],operator.add]

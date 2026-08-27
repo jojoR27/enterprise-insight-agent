@@ -2,16 +2,11 @@
 from langchain.agents import create_agent
 
 from app.agents.model import get_agent_model
-from app.agents.tools.knowledge_tool import (
-    create_knowledge_tool,
-)
+from app.agents.tools.knowledge_tool import create_knowledge_tool
 
 
 def create_knowledge_agent():
-    knowledge_tool = create_knowledge_tool(
-        k=3,
-        min_similarity=0.6,
-    )
+    knowledge_tool = create_knowledge_tool(k=3,min_similarity=0.6,)
 
     model = get_agent_model()
 

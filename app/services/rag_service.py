@@ -5,42 +5,27 @@ from app.database.models import (
     Document,
     DocumentChunk,
 )
-from app.rag.embedding_service import (
-    get_embedding_service,
-)
+from app.rag.embedding_service import get_embedding_service
 from app.rag.text_splitter import split_text
-from app.repositories.document_repository import (
-    DocumentRepository,
-)
+from app.repositories.document_repository import DocumentRepository
 from app.schemas.knowledge import (
     KnowledgeAskResponse,
     KnowledgeSearchItem,
     KnowledgeSearchResponse, KnowledgeCitation,
 )
-from app.rag.retrievers.pgvector_retriever import (
-    PgVectorRetriever,
-)
+from app.rag.retrievers.pgvector_retriever import PgVectorRetriever
 
 from app.services.llm_service import get_llm_service
 
 import re
 
-def validate_citations(
-    answer: str,
-    citations: list[KnowledgeCitation],
-) -> None:
-    no_answer_text = (
-        "根据当前知识库资料无法确定。"
-    )
+def validate_citations(answer: str,citations: list[KnowledgeCitation]) -> None:
+    no_answer_text = ("根据当前知识库资料无法确定。")
 
     if answer.strip() == no_answer_text:
         return
 
-    cited_numbers = re.findall(
-        r"\[来源(\d+)\]",
-        answer,
-    )
-
+    cited_numbers = re.findall(r"\[来源(\d+)\]",answer)
     if not cited_numbers:
         raise RuntimeError(
             "LLM 返回了答案，但没有提供引用"
@@ -84,29 +69,26 @@ class RagService:
         if not chunks:
             raise ValueError("文档内容不能为空")
 
-        embeddings = (
-            self.embedding_service.embed_documents(
-                chunks
-            )
-        )
+        embeddings = self.embedding_service.embed_documents(chunks)
 
         if len(chunks) != len(embeddings):
-            raise RuntimeError(
-                "Chunk 数量与 Embedding 数量不一致"
-            )
+            raise RuntimeError("Chunk 数量与 Embedding 数量不一致")
 
-        document = Document(
-            filename=filename,
-            content_type="text/plain",
-        )
+        # 动态识别后缀，设置content_type
+        suffix = filename.lower().split(".")[-1]
+        content_type_map = {
+            "txt": "text/plain",
+            "pdf": "application/pdf",
+            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        }
+        content_type = content_type_map.get(suffix, "application/octet-stream")
+
+        document = Document(filename=filename, content_type=content_type)
 
         try:
             self.repository.add_document(document)
-
             await self.db.flush()
-
             chunk_models: list[DocumentChunk] = []
-
             for index, (content, embedding) in enumerate(
                 zip(chunks, embeddings)
             ):
@@ -116,13 +98,11 @@ class RagService:
                     content=content,
                     embedding=embedding,
                 )
-
                 chunk_models.append(chunk)
 
             self.repository.add_chunks(chunk_models)
 
             await self.db.commit()
-
             await self.db.refresh(document)
 
             return document
@@ -144,9 +124,7 @@ class RagService:
             min_similarity=min_similarity,
         )
 
-        documents = await retriever.ainvoke(
-            query
-        )
+        documents = await retriever.ainvoke(query)
 
         results: list[KnowledgeSearchItem] = []
 

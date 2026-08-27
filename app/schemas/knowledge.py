@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 class KnowledgeCitation(BaseModel):
@@ -74,3 +76,10 @@ class KnowledgeAskResponse(BaseModel):
     query: str
     answer: str
     sources: list[KnowledgeCitation]
+
+
+class KnowledgeIngestResponse(BaseModel):
+    success: bool
+    message: str
+    document_id: Optional[int] = None
+    file_name: Optional[str] = None

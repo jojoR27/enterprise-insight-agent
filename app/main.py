@@ -2,15 +2,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from langgraph.checkpoint.postgres.aio import (
-    AsyncPostgresSaver,
-)
-from app.graph.persistence import (
-    create_langgraph_pool,
-)
-from app.graph.workflow import (
-    build_enterprise_graph,
-)
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from app.graph.persistence import create_langgraph_pool
+from app.graph.workflow import build_enterprise_graph
 from app.api.health import router as health_router
 from app.api.sales import router as sales_router
 from app.api.knowledge import router as knowledge_router
@@ -26,28 +20,12 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    langgraph_pool = (
-        create_langgraph_pool()
-    )
+    langgraph_pool = create_langgraph_pool()
+    await langgraph_pool.open(wait=True)
+    checkpointer = AsyncPostgresSaver(langgraph_pool)
 
-    await langgraph_pool.open(
-        wait=True
-    )
-
-    checkpointer = AsyncPostgresSaver(
-        langgraph_pool
-    )
-
-
-    app.state.enterprise_graph = (
-        build_enterprise_graph(
-            checkpointer
-        )
-    )
-
-    app.state.langgraph_pool = (
-        langgraph_pool
-    )
+    app.state.enterprise_graph = build_enterprise_graph(checkpointer)
+    app.state.langgraph_pool = langgraph_pool
 
     try:
         yield
@@ -62,7 +40,6 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
-
 
 app.include_router(
     health_router,
@@ -93,7 +70,6 @@ app.include_router(
     prefix="/api/v1",
     tags=["LangGraph"],
 )
-
 
 @app.get("/")
 async def root():

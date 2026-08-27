@@ -19,9 +19,7 @@ class PgVectorRetriever(BaseRetriever):
     k: int = 3
     min_similarity: float = 0.6
 
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-    )
+    model_config = ConfigDict(arbitrary_types_allowed=True,)
 
     def _get_relevant_documents(
         self,
@@ -29,10 +27,7 @@ class PgVectorRetriever(BaseRetriever):
         *,
         run_manager: CallbackManagerForRetrieverRun,
     ) -> list[Document]:
-        raise NotImplementedError(
-            "当前 Retriever 使用异步数据库连接，"
-            "请使用 await retriever.ainvoke(query)"
-        )
+        raise NotImplementedError("当前 Retriever 使用异步数据库连接，请使用 await retriever.ainvoke(query)")
 
     async def _aget_relevant_documents(
         self,
@@ -40,6 +35,7 @@ class PgVectorRetriever(BaseRetriever):
         *,
         run_manager: AsyncCallbackManagerForRetrieverRun,
     ) -> list[Document]:
+        # 输入问题向量化
         query_embedding = await asyncio.to_thread(
             self.embedding_service.embed_query,
             query,
