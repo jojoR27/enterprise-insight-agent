@@ -13,7 +13,7 @@ async def extract_text_from_file(file: UploadFile) -> str:
     text = ""
 
     if suffix == "txt":
-        text = stream.read().decode("utf‑8")
+        text = stream.read().decode("utf-8")
 
     elif suffix == "pdf":
         reader = PdfReader(stream)

@@ -12,12 +12,9 @@ def create_langgraph_pool() -> AsyncConnectionPool:
 
     return AsyncConnectionPool(
         conninfo=settings.langgraph_database_url,
-
         min_size=1,
         max_size=5,
-
         open=False,
-
         kwargs={
             "autocommit": True,
             "row_factory": dict_row,

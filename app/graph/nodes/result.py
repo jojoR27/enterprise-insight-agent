@@ -4,9 +4,7 @@ from langchain_core.messages import (
     SystemMessage,
 )
 
-from app.agents.model import (
-    get_agent_model,
-)
+from app.agents.model import get_agent_model
 from app.graph.state import (
     EnterpriseGraphState,
     ResultMode,
@@ -14,70 +12,45 @@ from app.graph.state import (
 )
 
 
-def get_ordered_results(
-    state: EnterpriseGraphState,
-) -> list[WorkerResult]:
+def get_ordered_results(state: EnterpriseGraphState,) -> list[WorkerResult]:
     """
     并行 Worker 的完成顺序不一定固定。
     按 Planner targets 的顺序重新排列，
     让最终输出更稳定。
     """
     results = state.get("worker_results",[],)
-
     targets = state.get("planner_targets",[],)
-
     order = {
         target: index
-        for index, target
-        in enumerate(targets)
+        for index, target in enumerate(targets)
     }
 
     return sorted(
         results,
-        key=lambda result: order.get(
-            result["target"],
-            999,
-        ),
+        key=lambda result: order.get(result["target"],999,),
     )
 
 
-def collect_worker_tools(
-    results: list[WorkerResult],
-) -> list[str]:
+def collect_worker_tools(results: list[WorkerResult],) -> list[str]:
     used_tools: list[str] = []
 
     for result in results:
-        for tool_name in result[
-            "used_tools"
-        ]:
-            if (
-                tool_name
-                not in used_tools
-            ):
-                used_tools.append(
-                    tool_name
-                )
-
+        for tool_name in result["used_tools"]:
+            if (tool_name not in used_tools):
+                used_tools.append(tool_name)
     return used_tools
 
 
-async def result_coordinator_node(
-    state: EnterpriseGraphState,
-) -> dict:
+async def result_coordinator_node(state: EnterpriseGraphState,) -> dict:
     """
     判断：
     只有一个 Worker → 直接返回
     多个 Worker → Synthesis
     """
-
-    results = get_ordered_results(
-        state
-    )
+    results = get_ordered_results(state)
 
     if not results:
-        raise RuntimeError(
-            "没有 Worker 执行结果"
-        )
+        raise RuntimeError("没有 Worker 执行结果")
 
     result_mode: ResultMode
 
@@ -87,90 +60,50 @@ async def result_coordinator_node(
         result_mode = "synthesis"
 
     return {
-        "result_mode":
-            result_mode,
-
-        "used_tools":
-            collect_worker_tools(
-                results
-            ),
+        "result_mode":result_mode,
+        "used_tools":collect_worker_tools(results),
     }
 
 
-def select_result_path(
-    state: EnterpriseGraphState,
-) -> ResultMode:
-    mode = state.get(
-        "result_mode"
-    )
+def select_result_path(state: EnterpriseGraphState,) -> ResultMode:
+    mode = state.get("result_mode")
 
-    if mode not in {
-        "direct",
-        "synthesis",
-    }:
-        raise RuntimeError(
-            f"非法 result_mode: {mode}"
-        )
-
+    if mode not in {"direct","synthesis",}:
+        raise RuntimeError(f"非法 result_mode: {mode}")
     return mode
 
 
-async def direct_result_node(
-    state: EnterpriseGraphState,
-) -> dict:
+async def direct_result_node(state: EnterpriseGraphState,) -> dict:
     """
     只有一个专业 Agent 时，
     不再额外调用一次 LLM。
     """
-    results = get_ordered_results(
-        state
-    )
+    results = get_ordered_results(state)
 
     if len(results) != 1:
-        raise RuntimeError(
-            "Direct Result "
-            "必须且只能有一个 Worker Result"
-        )
+        raise RuntimeError("Direct Result 必须且只能有一个 Worker Result")
 
     result = results[0]
 
     return {
-        "messages": [
-            AIMessage(
-                content=result["content"]
-            )
-        ]
+        "messages": [AIMessage(content=result["content"])]
     }
 
 
-async def synthesis_node(
-    state: EnterpriseGraphState,
-) -> dict:
+async def synthesis_node(state: EnterpriseGraphState,) -> dict:
     """
     多 Agent 结果统一综合。
     """
-    results = get_ordered_results(
-        state
-    )
+    results = get_ordered_results(state)
 
     if len(results) < 2:
-        raise RuntimeError(
-            "Synthesis 至少需要"
-            "两个 Worker Result"
-        )
+        raise RuntimeError("Synthesis 至少需要两个 Worker Result")
 
     user_question = ""
 
-    for message in reversed(
-        state["messages"]
-    ):
-        if isinstance(
-            message,
-            HumanMessage,
-        ):
-            user_question = str(
-                message.content
-            )
+    for message in reversed(state["messages"]):
+        if isinstance(message,HumanMessage,):
+            user_question = str(message.content)
             break
 
     result_blocks = []
@@ -184,11 +117,7 @@ async def synthesis_node(
             )
         )
 
-    worker_content = (
-        "\n\n".join(
-            result_blocks
-        )
-    )
+    worker_content = "\n\n".join(result_blocks)
 
     model = get_agent_model()
 
@@ -229,8 +158,4 @@ async def synthesis_node(
         ]
     )
 
-    return {
-        "messages": [
-            response
-        ]
-    }
+    return {"messages": [response]}

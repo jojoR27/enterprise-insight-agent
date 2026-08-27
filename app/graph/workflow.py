@@ -1,25 +1,25 @@
 # LangGraph的图构建
 
-from langgraph.checkpoint.memory import InMemorySaver
+# from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import (
     END,
     START,
     StateGraph,
 )
 
-from app.graph.nodes import chat_node
-from app.graph.planner_node import (
+from app.graph.nodes.chat import chat_node
+from app.graph.nodes.planner import (
     dispatch_after_planner,
     planner_node,
 )
-from app.graph.result_nodes import (
+from app.graph.nodes.result import (
     direct_result_node,
     result_coordinator_node,
     select_result_path,
     synthesis_node,
 )
 from app.graph.state import EnterpriseGraphState
-from app.graph.worker import worker_node
+from app.graph.nodes.worker import worker_node
 
 
 def build_enterprise_graph(checkpointer):
@@ -56,4 +56,4 @@ def build_enterprise_graph(checkpointer):
     )
 
 
-enterprise_graph = build_enterprise_graph(InMemorySaver())
+# enterprise_graph = build_enterprise_graph(InMemorySaver())

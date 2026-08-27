@@ -20,36 +20,31 @@ def format_planner_conversation(
     limit: int = 8,
 ) -> str:
     """
-    给 Planner 最近几轮对话。
-
-    因为 Router 以后不再存在，
-    Planner 自己需要具备处理省略式追问的能力。
+    给Planner最近几轮对话。
+    Planner 需要结合上下文理解：
+    “刚才的问题”
+    “继续”
+    “那销售额呢”
+    等省略式请求。
     """
     lines: list[str] = []
 
     for message in state["messages"][-limit:]:
-        if isinstance(
-            message,
-            HumanMessage,
-        ):
-            lines.append(
-                f"用户：{message.content}"
-            )
+        if isinstance(message,HumanMessage):
+            lines.append(f"用户：{message.content}")
 
         elif (
             isinstance(message, AIMessage)
             and message.content
         ):
-            lines.append(
-                f"助手：{message.content}"
-            )
+            lines.append(f"助手：{message.content}")
 
     return "\n".join(lines)
 
 
 async def planner_node(state: EnterpriseGraphState,) -> dict:
     """
-    整个动态 Multi-Agent Graph 的调度入口。
+    动态 Multi-Agent Graph 的调度入口。
     """
     conversation = (format_planner_conversation(state))
 
@@ -67,9 +62,7 @@ async def planner_node(state: EnterpriseGraphState,) -> dict:
     decision = await plan_request(planner_input)
 
     if decision is None:
-        raise RuntimeError(
-            "Planner 返回空 Decision"
-        )
+        raise RuntimeError("Planner 返回空 Decision")
 
     tasks = [
         {
@@ -105,7 +98,7 @@ def dispatch_after_planner(
 ):
     """
     根据 Planner 动态创建 Worker。
-    Planner 有几个 task，
+    Planner有几个task，
     就创建几个 Worker。
     """
     mode = state.get("planner_mode")

@@ -1,18 +1,10 @@
-from langchain_core.messages import (
-    SystemMessage,
-)
+from langchain_core.messages import SystemMessage
 
-from app.agents.model import (
-    get_agent_model,
-)
-from app.graph.state import (
-    EnterpriseGraphState,
-)
+from app.agents.model import get_agent_model
+from app.graph.state import EnterpriseGraphState
 
 
-async def chat_node(
-    state: EnterpriseGraphState,
-) -> dict:
+async def chat_node(state: EnterpriseGraphState,) -> dict:
     model = get_agent_model()
 
     response = await model.ainvoke(
@@ -29,8 +21,6 @@ async def chat_node(
     )
 
     return {
-        "messages": [
-            response
-        ],
+        "messages": [response],
         "used_tools": [],
     }
