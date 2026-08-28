@@ -3,7 +3,6 @@ from langchain_core.messages import (
     HumanMessage,
     SystemMessage,
 )
-
 from app.agents.model import get_agent_model
 from app.graph.state import (
     EnterpriseGraphState,
@@ -12,7 +11,7 @@ from app.graph.state import (
 )
 
 
-def get_ordered_results(state: EnterpriseGraphState,) -> list[WorkerResult]:
+def get_ordered_results(state: EnterpriseGraphState) -> list[WorkerResult]:
     """
     并行 Worker 的完成顺序不一定固定。
     按 Planner targets 的顺序重新排列，
@@ -24,11 +23,7 @@ def get_ordered_results(state: EnterpriseGraphState,) -> list[WorkerResult]:
         target: index
         for index, target in enumerate(targets)
     }
-
-    return sorted(
-        results,
-        key=lambda result: order.get(result["target"],999,),
-    )
+    return sorted(results,key=lambda result: order.get(result["target"],999))
 
 
 def collect_worker_tools(results: list[WorkerResult],) -> list[str]:
@@ -42,11 +37,6 @@ def collect_worker_tools(results: list[WorkerResult],) -> list[str]:
 
 
 async def result_coordinator_node(state: EnterpriseGraphState,) -> dict:
-    """
-    判断：
-    只有一个 Worker → 直接返回
-    多个 Worker → Synthesis
-    """
     results = get_ordered_results(state)
 
     if not results:
@@ -61,7 +51,7 @@ async def result_coordinator_node(state: EnterpriseGraphState,) -> dict:
 
     return {
         "result_mode":result_mode,
-        "used_tools":collect_worker_tools(results),
+        "used_tools":collect_worker_tools(results)
     }
 
 
@@ -79,12 +69,10 @@ async def direct_result_node(state: EnterpriseGraphState,) -> dict:
     不再额外调用一次 LLM。
     """
     results = get_ordered_results(state)
-
     if len(results) != 1:
         raise RuntimeError("Direct Result 必须且只能有一个 Worker Result")
 
     result = results[0]
-
     return {
         "messages": [AIMessage(content=result["content"])]
     }
@@ -95,7 +83,6 @@ async def synthesis_node(state: EnterpriseGraphState,) -> dict:
     多 Agent 结果统一综合。
     """
     results = get_ordered_results(state)
-
     if len(results) < 2:
         raise RuntimeError("Synthesis 至少需要两个 Worker Result")
 
@@ -118,7 +105,6 @@ async def synthesis_node(state: EnterpriseGraphState,) -> dict:
         )
 
     worker_content = "\n\n".join(result_blocks)
-
     model = get_agent_model()
 
     response = await model.ainvoke(

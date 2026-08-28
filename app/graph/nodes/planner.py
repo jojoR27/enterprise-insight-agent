@@ -7,18 +7,10 @@ from langgraph.types import (
     Send,
 )
 
-from app.graph.state import (
-    EnterpriseGraphState,
-)
-from app.planner.planner import (
-    plan_request,
-)
+from app.graph.state import EnterpriseGraphState
+from app.planner.planner import plan_request
 
-
-def format_planner_conversation(
-    state: EnterpriseGraphState,
-    limit: int = 8,
-) -> str:
+def format_planner_conversation(state: EnterpriseGraphState,limit: int = 8) -> str:
     """
     给Planner最近几轮对话。
     Planner 需要结合上下文理解：
@@ -33,10 +25,7 @@ def format_planner_conversation(
         if isinstance(message,HumanMessage):
             lines.append(f"用户：{message.content}")
 
-        elif (
-            isinstance(message, AIMessage)
-            and message.content
-        ):
+        elif isinstance(message, AIMessage) and message.content:
             lines.append(f"助手：{message.content}")
 
     return "\n".join(lines)
@@ -67,54 +56,38 @@ async def planner_node(state: EnterpriseGraphState,) -> dict:
     tasks = [
         {
             "target": task.target,
-            "instruction":
-                task.instruction,
+            "instruction":task.instruction,
         }
         for task in decision.tasks
     ]
 
     return {
-        "planner_mode":
-            decision.mode,
-
-        "planner_targets":
-            decision.targets,
-
-        "planner_tasks":
-            tasks,
-
-        "planner_reason":
-            decision.reason,
-
-        "worker_results":
-            Overwrite(value=[]),
-
+        "planner_mode":decision.mode,
+        "planner_targets":decision.targets,
+        "planner_tasks":tasks,
+        "planner_reason":decision.reason,
+        # 初始化容器
+        "worker_results":Overwrite(value=[]),
         "used_tools": [],
     }
 
 
-def dispatch_after_planner(
-    state: EnterpriseGraphState,
-):
+def dispatch_after_planner(state: EnterpriseGraphState):
     """
     根据 Planner 动态创建 Worker。
     Planner有几个task，
     就创建几个 Worker。
     """
     mode = state.get("planner_mode")
-
     if mode == "chat":
         return "chat"
 
-    tasks = state.get("planner_tasks",[],)
+    tasks = state.get("planner_tasks",[])
 
     if not tasks:
-        raise RuntimeError(
-            "Planner 非 chat 模式"
-            "但没有生成任何任务"
-        )
+        raise RuntimeError("Planner 非 chat 模式但没有生成任何任务")
 
     return [
-        Send("worker",{"task": task,},)
+        Send("worker",{"task": task,})
         for task in tasks
     ]

@@ -28,21 +28,18 @@ def build_enterprise_graph(checkpointer):
     builder.add_node("planner",planner_node)
     builder.add_node("worker", worker_node)
     builder.add_node("result_coordinator",result_coordinator_node)
-    builder.add_node("direct_result",direct_result_node)
-    builder.add_node("synthesis",synthesis_node)
+    builder.add_node("direct_result",direct_result_node) # 单任务
+    builder.add_node("synthesis",synthesis_node) # 多任务聚合答案
     builder.add_node("chat",chat_node)
 
 
-    builder.add_edge(START,"planner",)
+    builder.add_edge(START,"planner")
     builder.add_conditional_edges("planner",dispatch_after_planner)
     builder.add_edge("worker","result_coordinator",)
     builder.add_conditional_edges("result_coordinator",
         select_result_path,{
-            "direct":
-                "direct_result",
-
-            "synthesis":
-                "synthesis",
+            "direct":"direct_result",
+            "synthesis":"synthesis",
         },
     )
 

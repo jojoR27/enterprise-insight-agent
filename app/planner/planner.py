@@ -10,23 +10,11 @@ from pydantic import (
     Field,
     model_validator,
 )
+from app.agents.model import get_structured_base_model
 
-from app.agents.model import (
-    get_structured_base_model,
-)
-
-
-PlannerMode = Literal[
-    "chat",
-    "single",
-    "multi",
-]
-
-PlannerTarget = Literal[
-    # 后续增加的agent在这里列出来
-    "knowledge",
-    "sales",
-]
+PlannerMode = Literal["chat","single","multi"]
+# 后续增加的agent在这里列出来
+PlannerTarget = Literal["knowledge","sales",]
 
 
 class PlannerTask(BaseModel):
@@ -77,6 +65,7 @@ class PlannerDecision(BaseModel):
         description="生成当前任务计划的简短原因。"
     )
 
+    # 用于检验planner_agent做出规划的合理性
     @model_validator(mode="after")
     def validate_plan(self):
         task_targets = [
@@ -84,57 +73,36 @@ class PlannerDecision(BaseModel):
             for task in self.tasks
         ]
 
-        # 一个 Agent 不能被重复规划多次
-        if len(task_targets) != len(
-            set(task_targets)
-        ):
-            raise ValueError(
-                "同一个 Agent 不能重复生成多个任务"
-            )
+        # 可以合并的原子操作 合并给对应agent
+        if len(task_targets) != len(set(task_targets)):
+            raise ValueError("同一个 Agent 不能重复生成多个任务")
 
         # targets 与 tasks 必须一一对应
-        if set(task_targets) != set(
-            self.targets
-        ):
-            raise ValueError(
-                "targets 必须与 tasks 中的 target 完全一致"
-            )
+        if set(task_targets) != set(self.targets):
+            raise ValueError("targets 必须与 tasks 中的 target 完全一致")
 
         # 普通聊天不需要专业 Agent
         if self.mode == "chat":
             if self.targets or self.tasks:
-                raise ValueError(
-                    "chat 模式不能包含 Agent targets 或 tasks"
-                )
+                raise ValueError("chat 模式不能包含 Agent targets 或 tasks")
 
         # 单 Agent
         elif self.mode == "single":
-            if (
-                len(self.targets) != 1
-                or len(self.tasks) != 1
-            ):
-                raise ValueError(
-                    "single 模式必须且只能包含一个 Agent 任务"
-                )
+            if (len(self.targets) != 1or len(self.tasks) != 1):
+                raise ValueError("single 模式必须且只能包含一个 Agent 任务")
 
         # 多 Agent
         elif self.mode == "multi":
             if len(self.targets) < 2:
-                raise ValueError(
-                    "multi 模式至少需要两个 Agent"
-                )
+                raise ValueError("multi 模式至少需要两个 Agent")
 
         return self
 
-    def get_task(
-        self,
-        target: PlannerTarget,
-    ) -> str | None:
+
+    def get_task(self,target: PlannerTarget) -> str | None:
         """
         根据 Agent 名称获取 Planner
         为它拆分出的具体任务。
-
-        下一阶段接 LangGraph 时直接使用。
         """
         for task in self.tasks:
             if task.target == target:
@@ -142,7 +110,11 @@ class PlannerDecision(BaseModel):
 
         return None
 
-
+# 为什么要封装一层 `get_planner_model()`，而不直接调用
+# get_structured_base_model()它返回一个基础 ChatOpenAI LLM对象，只是配置好了api‑key、base_url、模型名称、关闭 thinking 等底层参数。
+# 它没有任何结构化输出绑定，就是一个普通聊天模型。
+# `.with_structured_output()` 会生成一个包装后的新可运行对象，调用之后得到的不再是原生ChatOpenAI，而是LangChain封装出来的Runnable。
+# 这个runnable被改造的行为有：自动采用function‑calling工具、强制大模型输出符合PlannerDecision的JSON、自动把JSON解析成Pydantic对象、同时保存解析错误原始返回消息。
 @lru_cache
 def get_planner_model():
     """
@@ -162,22 +134,15 @@ def get_planner_model():
     )
 
 
-async def plan_request(
-    question: str,
-) -> PlannerDecision:
+async def plan_request(question: str) -> PlannerDecision:
     """
-    根据用户问题生成 Agent 执行计划。
+    根据用户问题生成Agent执行计划。
     """
-
     question = question.strip()
 
-    if not question:
-        raise ValueError(
-            "Planner question 不能为空"
-        )
+    if not question:raise ValueError("Planner question 不能为空")
 
     planner_model = get_planner_model()
-
     messages = [
         SystemMessage(
             content=(
@@ -248,25 +213,15 @@ async def plan_request(
         ),
     ]
 
-    result = await planner_model.ainvoke(
-        messages
-    )
-
-
-    decision = result.get(
-        "parsed"
-    )
+    result = await planner_model.ainvoke(messages)
+    decision = result.get("parsed")
 
     if decision is not None:
         return decision
 
-    parsing_error = result.get(
-        "parsing_error"
-    )
+    parsing_error = result.get("parsing_error")
 
-    raw = result.get(
-        "raw"
-    )
+    raw = result.get("raw")
 
     raise RuntimeError(
         "Planner 未返回有效的结构化结果。"
