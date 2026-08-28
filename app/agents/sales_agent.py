@@ -1,15 +1,7 @@
-from langchain.agents import (
-    create_agent,
-)
-from app.agents.model import (
-    get_agent_model,
-)
-from app.agents.tools.sales_tool import (
-    create_sales_tool,
-)
-from app.agents.tools.text2sql_tool import (
-    create_text2sql_tool,
-)
+from langchain.agents import create_agent
+from app.agents.model import get_agent_model
+from app.agents.tools.sales_tool import create_sales_tool
+from app.agents.tools.text2sql_tool import create_text2sql_tool
 
 
 def create_sales_agent():

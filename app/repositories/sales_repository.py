@@ -10,10 +10,7 @@ class SalesRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def add(
-        self,
-        record: SalesRecord,
-    ) -> SalesRecord:
+    async def add(self,record: SalesRecord,) -> SalesRecord:
         self.db.add(record)
         return record
 
@@ -31,36 +28,24 @@ class SalesRepository:
         )
 
         if region:
-            statement = statement.where(
-                SalesRecord.region == region
-            )
+            statement = statement.where(SalesRecord.region == region)
 
         result = await self.db.execute(statement)
-
         return list(result.scalars().all())
 
     async def summary_by_region(self):
         statement = (
             select(
                 SalesRecord.region,
-                func.count(SalesRecord.id).label(
-                    "record_count"
-                ),
-                func.sum(SalesRecord.quantity).label(
-                    "total_quantity"
-                ),
-                func.sum(SalesRecord.revenue).label(
-                    "total_revenue"
-                ),
+                func.count(SalesRecord.id).label("record_count"),
+                func.sum(SalesRecord.quantity).label("total_quantity"),
+                func.sum(SalesRecord.revenue).label("total_revenue"),
             )
             .group_by(SalesRecord.region)
-            .order_by(
-                func.sum(SalesRecord.revenue).desc()
-            )
+            .order_by(func.sum(SalesRecord.revenue).desc())
         )
 
         result = await self.db.execute(statement)
-
         return result.all()
 
     # 条件过滤+聚合统计查询数据库
@@ -77,9 +62,7 @@ class SalesRepository:
         filters = []
 
         if region:
-            filters.append(
-                SalesRecord.region == region
-            )
+            filters.append(SalesRecord.region == region)
 
         if product_name:
             filters.append(
@@ -89,53 +72,19 @@ class SalesRepository:
             )
 
         if channel:
-            filters.append(
-                SalesRecord.channel == channel
-            )
+            filters.append(SalesRecord.channel == channel)
 
         if start_date:
-            filters.append(
-                SalesRecord.sale_date >= start_date
-            )
+            filters.append(SalesRecord.sale_date >= start_date)
 
         if end_date:
-            filters.append(
-                SalesRecord.sale_date <= end_date
-            )
+            filters.append(SalesRecord.sale_date <= end_date)
 
         metrics = [
-            func.count(
-                SalesRecord.id
-            ).label(
-                "record_count"
-            ),
-
-            func.coalesce(
-                func.sum(
-                    SalesRecord.quantity
-                ),
-                0,
-            ).label(
-                "total_quantity"
-            ),
-
-            func.coalesce(
-                func.sum(
-                    SalesRecord.revenue
-                ),
-                0,
-            ).label(
-                "total_revenue"
-            ),
-
-            func.coalesce(
-                func.avg(
-                    SalesRecord.unit_price
-                ),
-                0,
-            ).label(
-                "avg_unit_price"
-            ),
+            func.count(SalesRecord.id).label("record_count"),
+            func.coalesce(func.sum(SalesRecord.quantity),0).label("total_quantity"),
+            func.coalesce(func.sum(SalesRecord.revenue),0).label("total_revenue"),
+            func.coalesce(func.avg(SalesRecord.unit_price),0,).label("avg_unit_price"),
         ]
 
         group_columns = {
@@ -146,46 +95,24 @@ class SalesRepository:
         }
 
         if group_by == "none":
-            statement = select(
-                *metrics
-            )
+            statement = select(*metrics)
 
         else:
-            group_column = group_columns.get(
-                group_by
-            )
+            group_column = group_columns.get(group_by)
 
             if group_column is None:
-                raise ValueError(
-                    f"不支持的 group_by：{group_by}"
-                )
+                raise ValueError(f"不支持的 group_by：{group_by}")
 
-            statement = (
-                select(
-                    group_column.label(
-                        "group_value"
-                    ),
-                    *metrics,
-                )
-                .group_by(
-                    group_column
-                )
-                .order_by(
-                    func.sum(
-                        SalesRecord.revenue
-                    ).desc()
-                )
+            statement = (select(group_column.label("group_value"),*metrics,)
+                .group_by(group_column)
+                .order_by(func.sum(SalesRecord.revenue).desc())
                 .limit(limit)
             )
 
         if filters:
-            statement = statement.where(
-                *filters
-            )
+            statement = statement.where(*filters)
 
-        result = await self.db.execute(
-            statement
-        )
+        result = await self.db.execute(statement)
 
         try:
             rows = result.mappings().all()

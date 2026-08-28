@@ -5,37 +5,23 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from langchain_core.tools import tool
-from app.db import (
-    SessionLocal)
-from app.repositories.sales_repository import (
-    SalesRepository,
-)
-from app.schemas.sales_tool import (
-    SalesQueryInput,
-)
+from app.db import SessionLocal
+from app.repositories.sales_repository import SalesRepository
+from app.schemas.sales_tool import SalesQueryInput
 
 
 def normalize_value(value):
-    if isinstance(
-        value,
-        Decimal,
-    ):
+    if isinstance(value,Decimal):
         return float(value)
 
-    if isinstance(
-        value,
-        (date, datetime),
-    ):
+    if isinstance(value,(date, datetime)):
         return value.isoformat()
 
     return value
 
 
 def create_sales_tool():
-    @tool(
-        "query_sales_data",
-        args_schema=SalesQueryInput,
-    )
+    @tool("query_sales_data",args_schema=SalesQueryInput)
     async def query_sales_data(
         region: str | None = None,
         product_name: str | None = None,
@@ -80,24 +66,13 @@ def create_sales_tool():
                 "region": region,
                 "product_name": product_name,
                 "channel": channel,
-                "start_date": (
-                    start_date.isoformat()
-                    if start_date
-                    else None
-                ),
-                "end_date": (
-                    end_date.isoformat()
-                    if end_date
-                    else None
-                ),
+                "start_date": start_date.isoformat() if start_date else None,
+                "end_date": end_date.isoformat() if end_date else None,
             },
             "group_by": group_by,
             "rows": normalized_rows,
         }
 
-        return json.dumps(
-            result,
-            ensure_ascii=False,
-        )
+        return json.dumps(result,ensure_ascii=False)
 
     return query_sales_data
