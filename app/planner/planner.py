@@ -88,7 +88,7 @@ class PlannerDecision(BaseModel):
 
         # 单 Agent
         elif self.mode == "single":
-            if (len(self.targets) != 1or len(self.tasks) != 1):
+            if (len(self.targets) != 1 or len(self.tasks) != 1):
                 raise ValueError("single 模式必须且只能包含一个 Agent 任务")
 
         # 多 Agent
